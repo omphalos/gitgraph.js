@@ -9,22 +9,10 @@ describe( "Gitgraph.js", function () {
 
   describe( "Gitgraph", function () {
 
-    it( "should hide messages in compact mode", function () {
-      gitGraph = new GitGraph( { canvas: canvas, mode: "compact" } );
-
-      expect( gitGraph.template.commit.message.display ).toEqual( false );
-    } );
-
     it( "should load the right template", function () {
       gitGraph = new GitGraph( { canvas: canvas, template: "blackarrow" } );
 
       expect( gitGraph.template ).toEqual( gitGraph.newTemplate( "blackarrow" ) );
-    } );
-
-    it( "should load the default template", function () {
-      gitGraph = new GitGraph( { canvas: canvas, template: "wrongInput" } );
-
-      expect( gitGraph.template ).toEqual( gitGraph.newTemplate( "metro" ) );
     } );
 
   } );
@@ -79,27 +67,22 @@ describe( "Gitgraph.js", function () {
       master.commit().commit();
       develop = gitGraph.branch( "develop" );
       develop.commit();
-      master.commit( "message" );
-      gitGraph.commit( "plop" );
-    } );
-
-    it( "should have the right message", function () {
-      expect( master.commits[ 2 ].message ).toEqual( "message" );
+      master.commit();
+      gitGraph.commit();
     } );
 
     it( "should have a pretty color", function () {
       expect( master.commits[ 2 ].dotColor ).toEqual( gitGraph.template.colors[ 0 ] );
-      expect( master.commits[ 2 ].messageColor ).toEqual( gitGraph.template.colors[ 0 ] );
     } );
 
     it( "should have the right position", function () {
       // Commit on master
       expect( master.commits[ 2 ].x ).toEqual( 0 );
-      expect( master.commits[ 2 ].y ).toEqual( 240 );
+      expect( master.commits[ 2 ].y ).toEqual( 160 );
 
       // Commit on develop
       expect( develop.commits[ 1 ].x ).toEqual( 50 );
-      expect( develop.commits[ 1 ].y ).toEqual( 320 );
+      expect( develop.commits[ 1 ].y ).toEqual( 240 );
     } );
 
   } );

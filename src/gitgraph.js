@@ -2,34 +2,6 @@
   "use strict";
 
   /**
-   * Emit an event on the given element.
-   * @param {HTMLElement} element - DOM element to trigger the event on.
-   * @param {String} eventName - Name of the triggered event.
-   * @param {Object} [data={}] - Custom data to attach to the event.
-   * @private
-   */
-  function _emitEvent ( element, eventName, data ) {
-    var event;
-
-    if ( document.createEvent ) {
-      event = document.createEvent( "HTMLEvents" );
-      event.initEvent( eventName, true, true );
-    } else {
-      event = document.createEventObject();
-      event.eventType = eventName;
-    }
-
-    event.eventName = eventName;
-    event.data = data || {};
-
-    if ( document.createEvent ) {
-      element.dispatchEvent( event );
-    } else {
-      element.fireEvent( "on" + event.eventType, event );
-    }
-  }
-
-  /**
    * GitGraph
    *
    * @constructor
@@ -37,8 +9,6 @@
    * @param {Object} options - GitGraph options
    * @param {String} [options.elementId = "gitGraph"] - Id of the canvas container
    * @param {Template|String} [options.template] - Template of the graph
-   * @param {String} [options.author = "Sergio Flores <saxo-guy@epic.com>"] - Default author for commits
-   * @param {String} [options.mode = (null|"compact")]  - Display mode
    * @param {HTMLElement} [options.canvas] - DOM canvas (ex: document.getElementById("id"))
    * @param {String} [options.orientation = ("vertical-reverse"|"horizontal"|"horizontal-reverse")] - Graph orientation
    *
@@ -48,17 +18,12 @@
     // Options
     options = (typeof options === "object") ? options : {};
     this.elementId = (typeof options.elementId === "string") ? options.elementId : "gitGraph";
-    this.author = (typeof options.author === "string") ? options.author : "Sergio Flores <saxo-guy@epic.com>";
 
     // Template management
     if ( typeof options.template === "string" ) {
       options.template = this.newTemplate( options.template );
     }
     this.template = (options.template instanceof Template) ? options.template : this.newTemplate( "metro" );
-    this.mode = options.mode || null;
-    if ( this.mode === "compact" ) {
-      this.template.commit.message.display = false;
-    }
     this.marginX = this.template.commit.dot.size * 2;
     this.marginY = this.template.commit.dot.size * 2;
     this.offsetX = 0;
@@ -71,7 +36,6 @@
       this.orientation = "vertical-reverse";
       break;
     case "horizontal" :
-      this.template.commit.message.display = false;
       this.template.commit.spacingX = this.template.commit.spacingY;
       this.template.branch.spacingY = this.template.branch.spacingX;
       this.template.commit.spacingY = 0;
@@ -79,7 +43,6 @@
       this.orientation = "horizontal";
       break;
     case "horizontal-reverse" :
-      this.template.commit.message.display = false;
       this.template.commit.spacingX = -this.template.commit.spacingY;
       this.template.branch.spacingY = this.template.branch.spacingX;
       this.template.commit.spacingY = 0;
@@ -95,15 +58,6 @@
     this.canvas = document.getElementById( this.elementId ) || options.canvas;
     this.context = this.canvas.getContext( "2d" );
 
-    // Tooltip layer
-    this.tooltip = document.createElement( "div" );
-    this.tooltip.className = "gitgraph-tooltip";
-    this.tooltip.style.position = "fixed";
-    this.tooltip.style.display = "none";
-
-    // Add tooltip div into body
-    document.body.appendChild( this.tooltip );
-
     // Navigation vars
     this.HEAD = null;
     this.branchs = [];
@@ -113,13 +67,6 @@
     this.columnMax = 0; // nb of column for message position
     this.commitOffsetX = 0;
     this.commitOffsetY = 0;
-
-    // Bindings
-    var mouseMoveOptions = {
-      handleEvent: this.hover,
-      gitgraph: this
-    };
-    this.canvas.addEventListener( "mousemove", mouseMoveOptions, false );
 
     // Render on window resize
     window.onresize = this.render.bind( this );
@@ -240,10 +187,6 @@
          + this.marginY * 2
     };
 
-    if ( this.template.commit.message.display ) {
-      unscaledResolution.x += 800;
-    }
-
     this.canvas.style.width = unscaledResolution.x + "px";
     this.canvas.style.height = unscaledResolution.y + "px";
 
@@ -276,68 +219,6 @@
     // Render commits after to put them on the foreground
     for ( var j = 0, commit; !!(commit = this.commits[ j ]); j++ ) {
       commit.render();
-    }
-  };
-
-  /**
-   * Hover event on commit dot
-   *
-   * @param {MouseEvent} event - Mouse event
-   *
-   * @self Gitgraph
-   **/
-  GitGraph.prototype.hover = function ( event ) {
-    var self = this.gitgraph;
-    var isOut = true;
-
-    // Fix firefox MouseEvent
-    event.offsetX = event.offsetX ? event.offsetX : event.layerX;
-    event.offsetY = event.offsetY ? event.offsetY : event.layerY;
-    event.x = event.x ? event.x : event.clientX;
-    event.y = event.y ? event.y : event.clientY;
-
-    function showCommitTooltip () {
-      self.tooltip.style.left = event.x + "px"; // TODO Scroll bug
-      self.tooltip.style.top = event.y + "px";  // TODO Scroll bug
-      self.tooltip.textContent = commit.sha1 + " - " + commit.message;
-      self.tooltip.style.display = "block";
-    }
-
-    function emitMouseoverEvent () {
-      var mouseoverEventOptions = {
-        author: commit.author,
-        message: commit.message,
-        date: commit.date,
-        sha1: commit.sha1
-      };
-
-      _emitEvent( self.canvas, "commit:mouseover", mouseoverEventOptions );
-    }
-
-    for ( var i = 0, commit; !!(commit = this.gitgraph.commits[ i ]); i++ ) {
-      var distanceX = (commit.x + self.offsetX + self.marginX - event.offsetX);
-      var distanceY = (commit.y + self.offsetY + self.marginY - event.offsetY);
-      var distanceBetweenCommitCenterAndMouse = Math.sqrt( Math.pow( distanceX, 2 ) + Math.pow( distanceY, 2 ) );
-      var isOverCommit = distanceBetweenCommitCenterAndMouse < self.template.commit.dot.size;
-
-      if ( isOverCommit ) {
-        if ( !self.template.commit.message.display ) {
-          showCommitTooltip();
-        }
-
-        if ( !commit.isMouseover ) {
-          emitMouseoverEvent();
-        }
-
-        isOut = false;
-        commit.isMouseover = true;
-      } else {
-        commit.isMouseover = false;
-      }
-    }
-
-    if ( isOut ) {
-      self.tooltip.style.display = "none";
     }
   };
 
@@ -458,20 +339,12 @@
   /**
    * Add a commit
    *
-   * @param {(String | Object)} [options] - Message | Options of commit
-   * @param {String} [options.detailId] - Id of detail DOM Element
-   *
    * @see Commit
    *
    * @this Branch
    **/
-  Branch.prototype.commit = function ( options ) {
-    if ( typeof (options) === "string" ) {
-      var message = options;
-      options = { message: message };
-    } else if ( typeof (options) !== "object" ) {
-      options = {};
-    }
+  Branch.prototype.commit = function () {
+    var options = {};
 
     options.arrowDisplay = this.template.arrow.active;
     options.branch = this;
@@ -479,9 +352,7 @@
     options.parent = this.parent;
     options.parentCommit = options.parentCommit || this.commits.slice( -1 )[ 0 ];
 
-    // Special compact mode
-    if ( this.parent.mode === "compact"
-         && this.parent.commits.slice( -1 )[ 0 ]
+    if ( this.parent.commits.slice( -1 )[ 0 ]
          && this.parent.commits.slice( -1 )[ 0 ].branch !== options.branch
          && options.branch.commits.length
          && options.type !== "mergeCommit" ) {
@@ -489,21 +360,11 @@
       this.parent.commitOffsetY -= this.template.commit.spacingY;
     }
 
-    options.messageColor = options.messageColor || options.color || this.template.commit.message.color || null;
     options.dotColor = options.dotColor || options.color || this.template.commit.dot.color || null;
     options.x = this.offsetX - this.parent.commitOffsetX;
     options.y = this.offsetY - this.parent.commitOffsetY;
 
-    // Detail
-    var isVertical = this.parent.orientation === "vertical";
-    var isNotCompact = this.parent.mode !== "compact";
-    if ( typeof options.detailId === "string" && isVertical && isNotCompact ) {
-      options.detail = document.getElementById( options.detailId );
-    } else {
-      options.detail = null;
-    }
-
-    // Check collision (Cause of special compact mode)
+    // Check collision
     var previousCommit = options.branch.commits.slice( -1 )[ 0 ] || {};
     var commitPosition = options.x + options.y;
     var previousCommitPosition = previousCommit.x + previousCommit.y;
@@ -552,12 +413,6 @@
     this.parent.commitOffsetX += this.template.commit.spacingX;
     this.parent.commitOffsetY += this.template.commit.spacingY;
 
-    // Add height of detail div (normal vertical mode only)
-    if ( commit.detail !== null ) {
-      commit.detail.style.display = "block";
-      this.parent.commitOffsetY -= commit.detail.clientHeight - 40;
-    }
-
     // Auto-render
     this.parent.render();
 
@@ -587,13 +442,12 @@
    * Merge branch
    *
    * @param {Branch} [target = this.parent.HEAD]
-   * @param {(String | Object)} [commitOptions] - Message | Options of commit
    *
    * @this Branch
    *
    * @return {Branch} this
    **/
-  Branch.prototype.merge = function ( target, commitOptions ) {
+  Branch.prototype.merge = function ( target ) {
     // Merge target
     var targetBranch = target || this.parent.HEAD;
 
@@ -603,17 +457,10 @@
     }
 
     // Merge commit
-    var defaultMessage = "Merge branch `" + this.name + "` into `" + targetBranch.name + "`";
-    if ( typeof commitOptions !== "object" ) {
-      var message = commitOptions;
-      commitOptions = {};
-      commitOptions.message = (typeof message === "string") ? message : defaultMessage;
-    } else {
-      commitOptions.message = commitOptions.message || defaultMessage;
-    }
-    commitOptions.type = "mergeCommit";
-    commitOptions.parentCommit = this.commits.slice( -1 )[ 0 ];
-
+    var commitOptions = {
+      type: "mergeCommit",
+      parentCommit: this.commits.slice( -1 )[ 0 ]
+    };
     targetBranch.commit( commitOptions );
 
     // Add points to path
@@ -674,20 +521,13 @@
    * @param {GitGraph} options.parent - GitGraph constructor
    * @param {Number} options.x - Position X (dot)
    * @param {Number} options.y - Position Y (dot)
-   * @param {String} options.color - Master color (dot & message)
+   * @param {String} options.color - Master color (dot)
    * @param {Boolean} options.arrowDisplay - Add a arrow under commit dot
-   * @param {String} [options.author = this.parent.author] - Author name & email
-   * @param {String} [options.date] - Date of commit, default is now
-   * @param {String} [options.detail] - DOM Element of detail part
-   * @param {String} [options.sha1] - Sha1, default is a random short sha1
    * @param {String} [options.dotColor = options.color] - Specific dot color
    * @param {Number} [options.dotSize = this.template.commit.dot.size] - Dot size
    * @param {Number} [options.dotStrokeWidth = this.template.commit.dot.strokeWidth] - Dot stroke width
    * @param {Number} [options.dotStrokeColor = this.template.commit.dot.strokeColor]
    * @param {Commit} [options.parentCommit] - Parent commit
-   * @param {String} [options.message = "He doesn't like George Michael! Boooo!"] - Commit message
-   * @param {String} [options.messageColor = options.color] - Specific message color
-   * @param {Boolean} [options.messageDisplay = this.template.commit.message.display] - Commit message policy
    * @param {String} [options.type = ("mergeCommit"|null)] - Type of commit
    *
    * @this Commit
@@ -704,14 +544,7 @@
     this.template = this.parent.template;
     this.context = this.parent.context;
     this.branch = options.branch;
-    this.author = options.author || this.parent.author;
-    this.date = options.date || new Date().toUTCString();
-    this.detail = options.detail || null;
-    this.sha1 = options.sha1 || (Math.random( 100 )).toString( 16 ).substring( 3, 10 );
-    this.message = options.message || "He doesn't like George Michael! Boooo!";
     this.arrowDisplay = options.arrowDisplay;
-    this.messageDisplay = options.messageDisplay || this.template.commit.message.display;
-    this.messageColor = options.messageColor || options.color;
     this.dotColor = options.dotColor || options.color;
     this.dotSize = options.dotSize || this.template.commit.dot.size;
     this.dotStrokeWidth = options.dotStrokeWidth || this.template.commit.dot.strokeWidth;
@@ -747,21 +580,6 @@
     // Arrow
     if ( this.arrowDisplay && this.parentCommit instanceof Commit ) {
       this.arrow();
-    }
-
-    // Detail
-    if ( this.detail !== null ) {
-      this.detail.style.left = this.parent.canvas.offsetLeft + (this.parent.columnMax + 1) * this.template.branch.spacingX + 30 + "px";
-      this.detail.style.top = this.parent.canvas.offsetTop + this.y + 40 + "px";
-      this.detail.width = 30;
-    }
-
-    // Message
-    if ( this.messageDisplay ) {
-      var message = this.sha1 + " " + this.message + (this.author ? " - " + this.author : "");
-      this.context.font = this.template.commit.message.font;
-      this.context.fillStyle = this.messageColor;
-      this.context.fillText( message, (this.parent.columnMax + 1) * this.template.branch.spacingX, this.y + 3 );
     }
   };
 
@@ -839,14 +657,11 @@
    * @param {Number} [options.branch.spacingY] - Space between branchs
    * @param {Number} [options.commit.spacingX] - Space between commits
    * @param {Number} [options.commit.spacingY] - Space between commits
-   * @param {String} [options.commit.color] - Master commit color (dot & message)
+   * @param {String} [options.commit.color] - Master commit color (dot)
    * @param {String} [options.commit.dot.color] - Commit dot color
    * @param {Number} [options.commit.dot.size] - Commit dot size
    * @param {Number} [options.commit.dot.strokewidth] - Commit dot stroke width
    * @param {Number} [options.commit.dot.strokeColor] - Commit dot stroke color
-   * @param {String} [options.commit.message.color] - Commit message color
-   * @param {Boolean} [options.commit.message.display] - Commit display policy
-   * @param {String} [options.commit.message.font = "normal 12pt Calibri"] - Commit message font
    *
    * @this Template
    **/
@@ -857,7 +672,6 @@
     options.arrow = options.arrow || {};
     options.commit = options.commit || {};
     options.commit.dot = options.commit.dot || {};
-    options.commit.message = options.commit.message || {};
 
     // One color per column
     this.colors = options.colors || [ "#6963FF", "#47E8D4", "#6BDB52", "#E84BA5", "#FFA657" ];
@@ -886,23 +700,16 @@
     this.commit.spacingX = options.commit.spacingX || 0;
     this.commit.spacingY = (typeof options.commit.spacingY === "number") ? options.commit.spacingY : 25;
 
-    // Only one color, if null message takes branch color (full commit)
+    // Only one color, if null takes branch color (full commit)
     this.commit.color = options.commit.color || null;
 
     this.commit.dot = {};
 
-    // Only one color, if null message takes branch color (only dot)
+    // Only one color, if null takes branch color (only dot)
     this.commit.dot.color = options.commit.dot.color || null;
     this.commit.dot.size = options.commit.dot.size || 3;
     this.commit.dot.strokeWidth = options.commit.dot.strokeWidth || null;
     this.commit.dot.strokeColor = options.commit.dot.strokeColor || null;
-
-    this.commit.message = {};
-    this.commit.message.display = (typeof options.commit.message.display === "boolean") ? options.commit.message.display : true;
-
-    // Only one color, if null message takes commit color (only message)
-    this.commit.message.color = options.commit.message.color || null;
-    this.commit.message.font = options.commit.message.font || "normal 12pt Calibri";
   }
 
   /**
@@ -915,7 +722,7 @@
   Template.prototype.get = function ( name ) {
     var template = {};
 
-    switch ( name ) {
+    switch ( name || "metro" ) {
     case "blackarrow":
       template = {
         branch: {
@@ -930,9 +737,6 @@
             size: 12,
             strokeColor: "#000000",
             strokeWidth: 7
-          },
-          message: {
-            color: "black"
           }
         },
         arrow: {
@@ -943,7 +747,6 @@
       break;
 
     case "metro":
-    default:
       template = {
         colors: [ "#979797", "#008fb5", "#f1c109" ],
         branch: {
@@ -954,9 +757,6 @@
           spacingY: -80,
           dot: {
             size: 14
-          },
-          message: {
-            font: "normal 14pt Arial"
           }
         }
       };

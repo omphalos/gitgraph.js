@@ -16,25 +16,23 @@ var gitGraph = new GitGraph( config );
 var master = gitGraph.branch( "master" );
 
 // Commit on HEAD Branch which is "master"
-gitGraph.commit( "Initial commit" );
+gitGraph.commit();
 
 // Add few commits on master.
-gitGraph.commit( "My second commit" ).commit( "Add awesome feature" );
+gitGraph.commit().commit();
 
 // Create a new "dev" branch from "master"
 var dev = gitGraph.branch( "dev" );
-dev.commit( "Youhou \\o/" );
+dev.commit();
 
 // Commit again on "master"
-master.commit( "I'm the master !" );
+master.commit();
 
 // Advanced commit method with style and specific author (HEAD)
 var commitConfig = {
   dotColor: "white",
   dotSize: 10,
-  dotStrokeWidth: 10,
-  message: "Alors c'est qui le papa ?",
-  author: "Me <me@planee.fr>"
+  dotStrokeWidth: 10
 };
 gitGraph.commit( commitConfig );
 
@@ -49,19 +47,8 @@ gitGraph.commit( commitConfig );
  *       DETAILS       *
  ***********************/
 
-var commitWithDetailsConfig = {
-  message: "test",
-  detail: "detail" // Id of detail div (available in normal vertical mode only)
-};
-gitGraph.commit( commitWithDetailsConfig ).commit();
+gitGraph.commit( "detail" ).commit();
 dev.commit().commit(); // 2 default Commit on "dev"
-
-/***********************
- *    CUSTOMIZATION    *
- ***********************/
-
-gitGraph.author = "Fabien0102 <fabien0102@planee.fr>";
-master.commit();
 
 /***********************
  *       MERGES        *
@@ -74,11 +61,11 @@ dev.merge();
 
 // Create a "test" branch and merge in into "master" with a custom message.
 var test = gitGraph.branch( "test" );
-test.commit( "Final commit" );
-test.merge( master, "My special merge commit message" );
+test.commit();
+test.merge( master );
 
 // Then, continue committing on the "test" branch
-test.commit( "It's works !" );
+test.commit();
 
 /***********************
  *       EVENTS        *
